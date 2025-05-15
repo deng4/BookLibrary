@@ -35,7 +35,7 @@ namespace BookLibrary.Repositories
         {
             if (!File.Exists(_filePath))
             {
-                File.WriteAllText(_filePath, JsonSerializer.Serialize(new List<Author>(), _options));
+                File.WriteAllText(_filePath, JsonSerializer.Serialize(new List<Reader>(), _options));
             }
         }
 
