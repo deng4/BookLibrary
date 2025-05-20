@@ -1,0 +1,71 @@
+﻿@model BookLibrary.Models.ViewModels.BookWithAuthorsViewModel
+
+@{
+    ViewData["Title"] = "Детали книги";
+}
+
+<h1>@Model.Title</h1>
+
+<div>
+    <h4>Информация о книге</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.Title)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.Title)
+        </dd>
+        <dt class="col-sm-3">
+            Описание
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.Description)
+        </dd>
+        <dt class="col-sm-3">
+            Авторы
+        </dt>
+        <dd class="col-sm-9">
+            @if (Model.AuthorNames != null && Model.AuthorNames.Any())
+            {
+                @string.Join(", ", Model.AuthorNames)
+            }
+            else
+            {
+                <span>Не указаны</span>
+            }
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.PublicationYear)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.PublicationYear)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.ISBN)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.ISBN)
+        </dd>
+        <dt class="col-sm-3">
+            Статус / У кого
+        </dt>
+        <dd class="col-sm-9">
+            <span class="@(Model.CurrentReaderId.HasValue ? "text-danger fw-bold" : "text-success fw-bold")">
+                @Html.DisplayFor(model => model.CurrentReaderName)
+            </span>
+            @if (Model.CurrentReaderId.HasValue)
+            {
+                <span>(<a asp-controller="Readers" asp-action="Details" asp-route-id="@Model.CurrentReaderId">Перейти к читателю</a>)</span>
+            }
+        </dd>
+    </dl>
+</div>
+<div class="mt-3">
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Редактировать</a> |
+    @if (!Model.CurrentReaderId.HasValue) // Кнопка "Взять книгу" может быть здесь, если удобно
+    {
+        <a asp-controller="Readers" asp-action="SelectReaderForBook" asp-route-bookId="@Model.Id" class="btn btn-success">Выдать книгу читателю</a>
+    }
+    <a asp-action="Index" class="btn btn-secondary">Назад к списку</a>
+</div>

@@ -34,6 +34,9 @@ namespace BookLibrary.Controllers
             {
                 Id = b.Id,
                 Title = b.Title,
+                ISBN = b.ISBN,
+                PublicationYear = b.PublicationYear,
+                Description = b.Description,
                 AuthorNames = b.AuthorIds.Select(authorId =>
                 {
                     var author = authors.FirstOrDefault(a => a.Id == authorId);
@@ -67,9 +70,9 @@ namespace BookLibrary.Controllers
             {
                 Id = book.Id,
                 Title = book.Title,
-                // Description = book.Description, // Добавьте, если нужно
-                // PublicationYear = book.PublicationYear, // Добавьте, если нужно
-                // ISBN = book.ISBN, // Добавьте, если нужно
+                Description = book.Description, // Добавьте, если нужно
+                PublicationYear = book.PublicationYear, // Добавьте, если нужно
+                ISBN = book.ISBN, // Добавьте, если нужно
                 AuthorNames = book.AuthorIds.Select(authorId =>
                 {
                     var author = authors.FirstOrDefault(a => a.Id == authorId);
@@ -249,6 +252,9 @@ namespace BookLibrary.Controllers
             {
                 Id = book.Id,
                 Title = book.Title,
+                PublicationYear = book.PublicationYear,
+                Description=book.Description,
+                ISBN = book.ISBN,
                 AuthorNames = book.AuthorIds.Select(authorId =>
                 {
                     var author = authors.FirstOrDefault(a => a.Id == authorId);

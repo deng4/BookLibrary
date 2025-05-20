@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "Id": "7b251dad-40fc-496e-8392-bdd458018ed9",
+    "Title": "\u0423\u0431\u0438\u0442\u044C \u0411\u043E\u0433\u0430",
+    "Description": "\u041A\u043D\u0438\u0433\u0430 \u043E \u043F\u0440\u043E\u0442\u0438\u0432\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0438 \u0431\u043E\u0436\u0435\u0441\u0442\u0432\u0443",
+    "AuthorIds": [
+      "ee6edf39-911e-49a6-b6ab-cf061ea3807a"
+    ],
+    "PublicationYear": 2023,
+    "ISBN": "1235625",
+    "CurrentReaderId": null
+  }
+]

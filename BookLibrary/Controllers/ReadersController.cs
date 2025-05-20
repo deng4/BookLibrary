@@ -53,11 +53,13 @@ namespace BookLibrary.Controllers
             {
                 Id = b.Id,
                 Title = b.Title,
+                ISBN=b.ISBN,
+                PublicationYear=b.PublicationYear,
                 AuthorNames = b.AuthorIds?.Select(authorId =>
                 {
                     var author = authors.FirstOrDefault(a => a.Id == authorId);
                     return author?.FullName ?? "Автор не найден";
-                }).ToList() ?? new List<string>()
+                }).ToList() ?? new List<string>(),
             }).ToList();
 
             var viewModel = new ReaderViewModel

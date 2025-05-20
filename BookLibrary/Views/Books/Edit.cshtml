@@ -1,0 +1,66 @@
+﻿@model BookLibrary.Models.ViewModels.BookViewModel
+
+@{
+    ViewData["Title"] = "Редактировать книгу";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<h4>@Model.Title</h4>
+<hr />
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="Edit">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <input type="hidden" asp-for="Id" />
+
+            <div class="form-group mb-3">
+                <label asp-for="Title" class="control-label"></label>
+                <input asp-for="Title" class="form-control" />
+                <span asp-validation-for="Title" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="Description" class="control-label"></label>
+                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="SelectedAuthorIds" class="control-label"></label>
+                <select asp-for="SelectedAuthorIds" class="form-control" asp-items="Model.AvailableAuthors" multiple="multiple" size="6"></select>
+                <span asp-validation-for="SelectedAuthorIds" class="text-danger"></span>
+                <small class="form-text text-muted">Удерживайте Ctrl (или Cmd на Mac) для выбора нескольких авторов. Новых авторов нужно <a asp-controller="Authors" asp-action="Create">создать отдельно</a>.</small>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="PublicationYear" class="control-label"></label>
+                        <input asp-for="PublicationYear" class="form-control" type="number" />
+                        <span asp-validation-for="PublicationYear" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="ISBN" class="control-label"></label>
+                        <input asp-for="ISBN" class="form-control" />
+                        <span asp-validation-for="ISBN" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="form-group mt-3">
+                <input type="submit" value="Сохранить" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary ms-2">Назад к списку</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
