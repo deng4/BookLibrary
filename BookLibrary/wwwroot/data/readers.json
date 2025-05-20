@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "Id": "7560b605-2631-4ac1-ae65-5e8ec704a838",
+    "FirstName": "\u041C\u0438\u0445\u0430\u0438\u043B",
+    "LastName": "\u0413\u043E\u043B\u0443\u0431\u044C",
+    "MiddleName": "\u041E\u043B\u0435\u0433\u043E\u0432\u0438\u0447",
+    "Email": "golubmichael060602@gmail.com",
+    "PhoneNumber": "\u002B375295459169",
+    "RegistrationDate": "2025-05-20T12:32:40.1377226Z",
+    "FullName": "\u0413\u043E\u043B\u0443\u0431\u044C \u041C\u0438\u0445\u0430\u0438\u043B \u041E\u043B\u0435\u0433\u043E\u0432\u0438\u0447"
+  }
+]

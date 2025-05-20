@@ -30,6 +30,7 @@ namespace BookLibrary.Models
         [Display(Name = "Дата регистрации")]
         public DateTime RegistrationDate { get; set; } = DateTime.UtcNow;
 
+        [Display(Name = "ФИО")]
         public string FullName => $"{LastName} {FirstName} {MiddleName}".Trim();
     }
 }
