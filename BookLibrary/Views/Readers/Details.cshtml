@@ -1,0 +1,75 @@
+﻿@model BookLibrary.Models.ViewModels.ReaderViewModel
+
+@{
+    ViewData["Title"] = $"Профиль читателя: {Model.FullName}";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<div>
+    <h4>Информация о читателе</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.FirstName)</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(model => model.FirstName)</dd>
+        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.LastName)</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(model => model.LastName)</dd>
+        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.MiddleName)</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(model => model.MiddleName)</dd>
+        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.PhoneNumber)</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(model => model.PhoneNumber)</dd>
+        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Email)</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(model => model.Email)</dd>
+    </dl>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+
+<h4>Взятые книги</h4>
+@if (Model.BorrowedBooks != null && Model.BorrowedBooks.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Авторы</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var book in Model.BorrowedBooks)
+            {
+                <tr>
+                    <td>@book.Title</td>
+                    <td>@string.Join(", ", book.AuthorNames)</td>
+                    <td>
+                        <form asp-controller="Readers" asp-action="ReturnBook" method="post">
+                            <input type="hidden" name="bookId" value="@book.Id" />
+                            <input type="hidden" name="readerId" value="@Model.Id" />
+                            <button type="submit" class="btn btn-warning btn-sm">Вернуть</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>Читатель не брал книг.</p>
+}
+
+<hr />
+<div>
+    <a asp-action="BorrowBook" asp-route-readerId="@Model.Id" class="btn btn-success">Взять новую книгу</a>
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Редактировать профиль</a>
+    <a asp-action="Index" class="btn btn-secondary">К списку читателей</a>
+</div>

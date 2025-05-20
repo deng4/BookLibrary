@@ -1,0 +1,46 @@
+﻿@model BookLibrary.Models.ViewModels.BorrowBookViewModel
+
+@{
+    ViewData["Title"] = $"Выдать книгу читателю: {Model.ReaderName}";
+}
+
+<h1>@ViewData["Title"]</h1>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="BorrowBook" asp-route-readerId="@Model.ReaderId">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <input type="hidden" asp-for="ReaderId" />
+
+            <div class="form-group mb-3">
+                <label asp-for="SelectedBookId" class="control-label"></label>
+                @if (Model.AvailableBooks != null && Model.AvailableBooks.Any())
+                {
+                    <select asp-for="SelectedBookId" class="form-control" asp-items="Model.AvailableBooks">
+                        <option value="">-- Выберите книгу --</option>
+                    </select>
+                }
+                else
+                {
+                    <p class="text-warning">Нет доступных книг для выдачи.</p>
+                }
+                <span asp-validation-for="SelectedBookId" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mt-3">
+                @if (Model.AvailableBooks != null && Model.AvailableBooks.Any())
+                {
+                    <input type="submit" value="Выдать книгу" class="btn btn-primary" />
+                }
+                <a asp-controller="Readers" asp-action="Details" asp-route-id="@Model.ReaderId" class="btn btn-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
