@@ -1,0 +1,59 @@
+﻿@model BookLibrary.Models.Author
+
+@{
+    ViewData["Title"] = "Удаление автора";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<h3>Вы уверены, что хотите удалить этого автора?</h3>
+@if (ViewBag.HasBooks == true)
+{
+    <div class="alert alert-danger">
+        <strong>Внимание!</strong> За этим автором числятся книги. Удаление автора возможно только после удаления или изменения этих книг.
+    </div>
+}
+<div>
+    <h4>@Model.FullName</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.LastName)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.LastName)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.FirstName)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.FirstName)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.DateOfBirth)
+        </dt>
+        <dd class="col-sm-9">
+            @if (Model.DateOfBirth.HasValue)
+            {
+                @Model.DateOfBirth.Value.ToShortDateString()
+            }
+            else
+            {
+                <span>Не указана</span>
+            }
+        </dd>
+    </dl>
+
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        @if (ViewBag.HasBooks != true)
+        {
+            <input type="submit" value="Удалить" class="btn btn-danger" />
+        }
+        else
+        {
+            <input type="submit" value="Удалить" class="btn btn-danger" disabled />
+        }
+        <a asp-action="Index" class="btn btn-secondary ms-2">Отмена</a>
+    </form>
+</div>
