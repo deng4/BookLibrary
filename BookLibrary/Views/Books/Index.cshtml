@@ -1,0 +1,70 @@
+﻿@model IEnumerable<BookLibrary.Models.ViewModels.BookWithAuthorsViewModel>
+
+@{
+    ViewData["Title"] = "Список книг";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Добавить новую книгу</a>
+</p>
+
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.First().Title)
+            </th>
+            <th>
+                Авторы
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.First().PublicationYear)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.First().ISBN)
+            </th>
+            <th>
+                Статус / У кого
+            </th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Title)
+                </td>
+                <td>
+                    @if (item.AuthorNames != null && item.AuthorNames.Any())
+                    {
+                        @string.Join(", ", item.AuthorNames)
+                    }
+                    else
+                    {
+                        <span>Не указаны</span>
+                    }
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.PublicationYear)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ISBN)
+                </td>
+                <td>
+                    <span class="@(item.CurrentReaderId.HasValue ? "text-danger" : "text-success")">
+                        @Html.DisplayFor(modelItem => item.CurrentReaderName)
+                    </span>
+                </td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Редактировать</a> |
+                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">Детали</a> |
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

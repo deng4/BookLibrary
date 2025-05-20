@@ -40,9 +40,12 @@ namespace BookLibrary.Models.ViewModels
     public class BookWithAuthorsViewModel
     {
         public Guid Id { get; set; }
+        public string? Description { get; set; }
         public string Title { get; set; }
         public List<string> AuthorNames { get; set; } = new List<string>();
         public string? CurrentReaderName { get; set; } // Если нужно показать, кто взял
         public Guid? CurrentReaderId { get; set; }
+        public string? ISBN { get; set; }
+        public int? PublicationYear { get; set; }
     }
 }

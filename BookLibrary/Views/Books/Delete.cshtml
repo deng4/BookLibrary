@@ -1,0 +1,58 @@
+﻿@model BookLibrary.Models.ViewModels.BookWithAuthorsViewModel
+
+@{
+    ViewData["Title"] = "Удаление книги";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<h3>Вы уверены, что хотите удалить эту книгу?</h3>
+
+@if (Model.CurrentReaderId.HasValue)
+{
+    <div class="alert alert-danger">
+        <strong>Внимание!</strong> Эту книгу нельзя удалить, так как она выдана читателю (@Model.CurrentReaderName).
+        Сначала верните книгу в библиотеку.
+    </div>
+}
+
+<div>
+    <h4>@Model.Title</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-3">
+            Авторы
+        </dt>
+        <dd class="col-sm-9">
+            @if (Model.AuthorNames != null && Model.AuthorNames.Any())
+            {
+                @string.Join(", ", Model.AuthorNames)
+            }
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.PublicationYear)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.PublicationYear)
+        </dd>
+        <dt class="col-sm-3">
+            Статус
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.CurrentReaderName)
+        </dd>
+    </dl>
+
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        @if (!Model.CurrentReaderId.HasValue)
+        {
+            <input type="submit" value="Удалить" class="btn btn-danger" />
+        }
+        else
+        {
+            <input type="submit" value="Удалить" class="btn btn-danger" disabled />
+        }
+        <a asp-action="Index" class="btn btn-secondary ms-2">Отмена</a>
+    </form>
+</div>
