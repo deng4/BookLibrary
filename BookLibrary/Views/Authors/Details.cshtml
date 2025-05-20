@@ -1,0 +1,61 @@
+﻿@model BookLibrary.Models.Author
+
+@{
+    ViewData["Title"] = "Детали автора";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<div>
+    <h4>@Model.FullName</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.LastName)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.LastName)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.FirstName)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.FirstName)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.MiddleName)
+        </dt>
+        <dd class="col-sm-9">
+            @Html.DisplayFor(model => model.MiddleName)
+        </dd>
+        <dt class="col-sm-3">
+            @Html.DisplayNameFor(model => model.DateOfBirth)
+        </dt>
+        <dd class="col-sm-9">
+            @if (Model.DateOfBirth.HasValue)
+            {
+                @Model.DateOfBirth.Value.ToShortDateString()
+            }
+            else
+            {
+                <span>Не указана</span>
+            }
+        </dd>
+    </dl>
+</div>
+@* Опционально: Отобразить книги автора, если передали через ViewBag*@
+@if (ViewBag.BooksByAuthor != null)
+{
+    <h5>Книги этого автора:</h5>
+    <ul>
+        @foreach (var book in ViewBag.BooksByAuthor as IEnumerable<BookLibrary.Models.Book>)
+        {
+            <li>@book.Title</li>
+        }
+    </ul>
+}
+
+<div class="mt-3">
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Редактировать</a> |
+    <a asp-action="Index" class="btn btn-secondary">Назад к списку</a>
+</div>
