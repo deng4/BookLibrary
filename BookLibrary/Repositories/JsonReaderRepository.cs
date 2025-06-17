@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace BookLibrary.Repositories
 {
-    public class JsonReaderRepository : IReaderRepository
+    public class JsonReaderRepository /*: IReaderRepository*/
     {
         private readonly string _filePath;
         private readonly JsonSerializerOptions _options;

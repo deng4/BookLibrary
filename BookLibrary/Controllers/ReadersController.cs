@@ -2,11 +2,13 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using BookLibrary.Models;
-using BookLibrary.Models.ViewModels;
-using BookLibrary.Repositories;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc.Rendering; // Для SelectListItem
+using Microsoft.EntityFrameworkCore; // Для DbUpdateException
+using Microsoft.Data.SqlClient; // <--- ДОБАВЛЕНО для SqlException
+using System.Collections.Generic; // Для IEnumerable, List
+using BookLibrary.Models.ViewModels; // Для всех ViewModel
+using BookLibrary.Repositories; // Для интерфейсов репозиториев
+using BookLibrary.Models.DatabaseModels; // Для сущностей БД Reader
 
 namespace BookLibrary.Controllers
 {
@@ -14,54 +16,46 @@ namespace BookLibrary.Controllers
     {
         private readonly IReaderRepository _readerRepository;
         private readonly IBookRepository _bookRepository;
-        private readonly IAuthorRepository _authorRepository; // Для отображения авторов книг
 
-        public ReadersController(IReaderRepository readerRepository, IBookRepository bookRepository, IAuthorRepository authorRepository)
+        public ReadersController(IReaderRepository readerRepository, IBookRepository bookRepository)
         {
             _readerRepository = readerRepository;
             _bookRepository = bookRepository;
-            _authorRepository = authorRepository;
         }
 
         // GET: Readers
         public async Task<IActionResult> Index()
         {
-            var readers = await _readerRepository.GetAllAsync();
-            return View(readers.OrderBy(r => r.LastName).ThenBy(r => r.FirstName));
+            var readers = await _readerRepository.GetAllAsync(); // Получаем всех читателей (DatabaseModels.Reader)
+
+            // Проецируем каждую сущность Reader в ReaderViewModel
+            var readerViewModels = readers
+                .OrderBy(r => r.LastName)
+                .Select(r => new ReaderViewModel // Проецируем в ожидаемый ViewModel
+                {
+                    Id = r.Id,
+                    FirstName = r.FirstName,
+                    LastName = r.LastName,
+                    MiddleName = r.MiddleName,
+                    Email = r.Email,
+                    PhoneNumber = r.PhoneNumber,
+                    RegistrationDate = r.RegistrationDate,
+                    // Добавляем счетчик книг, взятых читателем
+                    BorrowedBooksCount = r.BorrowedBooks?.Count ?? 0
+                })
+                .ToList();
+
+            return View(readerViewModels);
         }
 
         // GET: Readers/Details/5
         public async Task<IActionResult> Details(Guid? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
+            var reader = await _readerRepository.GetByIdAsync(id.Value); // Получаем читателя с подгруженными книгами
+            if (reader == null) return NotFound();
 
-            var reader = await _readerRepository.GetByIdAsync(id.Value);
-            if (reader == null)
-            {
-                return NotFound();
-            }
-
-            var allBooks = await _bookRepository.GetAllAsync();
-            var borrowedBooksModels = allBooks.Where(b => b.CurrentReaderId == id.Value).ToList();
-
-            var authors = await _authorRepository.GetAllAsync(); // Получаем всех авторов один раз
-
-            var borrowedBooksViewModel = borrowedBooksModels.Select(b => new BookWithAuthorsViewModel
-            {
-                Id = b.Id,
-                Title = b.Title,
-                ISBN=b.ISBN,
-                PublicationYear=b.PublicationYear,
-                AuthorNames = b.AuthorIds?.Select(authorId =>
-                {
-                    var author = authors.FirstOrDefault(a => a.Id == authorId);
-                    return author?.FullName ?? "Автор не найден";
-                }).ToList() ?? new List<string>(),
-            }).ToList();
-
+            // Проецируем читателя в ReaderViewModel
             var viewModel = new ReaderViewModel
             {
                 Id = reader.Id,
@@ -71,65 +65,87 @@ namespace BookLibrary.Controllers
                 Email = reader.Email,
                 PhoneNumber = reader.PhoneNumber,
                 RegistrationDate = reader.RegistrationDate,
-                BorrowedBooks = borrowedBooksViewModel
+                BorrowedBooksCount = reader.BorrowedBooks?.Count ?? 0,
+                // Проецируем каждую взятую книгу в BookWithAuthorsViewModel, если нужно показать их детали
+                BorrowedBooks = reader.BorrowedBooks?
+                                      .Select(b => new BookWithAuthorsViewModel
+                                      {
+                                          Id = b.Id,
+                                          Title = b.Title,
+                                          ISBN = b.ISBN,
+                                          AuthorNames = b.Authors != null ? b.Authors.Select(a => a.FullName).ToList() : new List<string>()
+                                      }).ToList()
+                                      ?? new List<BookWithAuthorsViewModel>()
             };
-
             return View(viewModel);
         }
 
-        // GET: Readers/Create (Регистрация нового читателя)
+        // GET: Readers/Create
         public IActionResult Create()
         {
-            return View(new ReaderViewModel()); // Или Reader, если ViewModel не добавляет специфики
+            // Для создания, представление может ожидать ReaderViewModel
+            return View(new ReaderViewModel());
         }
 
         // POST: Readers/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("FirstName,LastName,MiddleName,Email,PhoneNumber")] ReaderViewModel readerViewModel)
+        public async Task<IActionResult> Create([Bind("FirstName,LastName,MiddleName,Email,PhoneNumber")] ReaderViewModel viewModel) // Принимаем ReaderViewModel
         {
-            if (ModelState.IsValid)
+            try
             {
-                // Проверка на существующий Email, если это требуется
-                var existingReader = (await _readerRepository.GetAllAsync()).FirstOrDefault(r => r.Email.Equals(readerViewModel.Email, StringComparison.OrdinalIgnoreCase));
-                if (existingReader != null)
+                if (ModelState.IsValid)
                 {
-                    ModelState.AddModelError("Email", "Читатель с таким Email уже зарегистрирован.");
-                }
-                else
-                {
-                    var reader = new Reader
+                    // Преобразуем ViewModel в сущность базы данных Reader
+                    var reader = new Reader // Это BookLibrary.Models.DatabaseModels.Reader
                     {
-                        FirstName = readerViewModel.FirstName,
-                        LastName = readerViewModel.LastName,
-                        MiddleName = readerViewModel.MiddleName,
-                        Email = readerViewModel.Email,
-                        PhoneNumber = readerViewModel.PhoneNumber,
-                        RegistrationDate = DateTime.UtcNow
-                        // Id генерируется в конструкторе Reader
+                        Id = Guid.NewGuid(),
+                        FirstName = viewModel.FirstName,
+                        LastName = viewModel.LastName,
+                        MiddleName = viewModel.MiddleName,
+                        Email = viewModel.Email,
+                        PhoneNumber = viewModel.PhoneNumber,
+                        RegistrationDate = DateTime.UtcNow // Устанавливаем дату регистрации
                     };
+
                     await _readerRepository.AddAsync(reader);
                     TempData["SuccessMessage"] = $"Читатель '{reader.FullName}' успешно зарегистрирован.";
                     return RedirectToAction(nameof(Index));
                 }
             }
-            return View(readerViewModel);
+            catch (DbUpdateException ex)
+            {
+                var sqlException = ex.InnerException as Microsoft.Data.SqlClient.SqlException; // <--- ИЗМЕНЕНО
+                if (sqlException != null && (sqlException.Number == 2627 || sqlException.Number == 2601)) // 2627: PK violation, 2601: Unique constraint violation
+                {
+                    // Отлов ошибки уникальности Email (или других уникальных полей) из БД
+                    if (sqlException.Message.Contains("IX_Readers_Email") || sqlException.Message.Contains("Cannot insert duplicate key row"))
+                    {
+                        ModelState.AddModelError("Email", "Читатель с таким Email уже существует.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, "Произошла ошибка базы данных при добавлении читателя. Пожалуйста, попробуйте снова.");
+                    }
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, "Произошла непредвиденная ошибка.");
+                }
+            }
+            // Если модель невалидна или произошла ошибка, возвращаем ViewModel
+            return View(viewModel);
         }
 
         // GET: Readers/Edit/5
         public async Task<IActionResult> Edit(Guid? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             var reader = await _readerRepository.GetByIdAsync(id.Value);
-            if (reader == null)
-            {
-                return NotFound();
-            }
-            var readerViewModel = new ReaderViewModel // Используем ViewModel
+            if (reader == null) return NotFound();
+
+            // Проецируем читателя в ReaderViewModel для редактирования
+            var viewModel = new ReaderViewModel
             {
                 Id = reader.Id,
                 FirstName = reader.FirstName,
@@ -137,61 +153,112 @@ namespace BookLibrary.Controllers
                 MiddleName = reader.MiddleName,
                 Email = reader.Email,
                 PhoneNumber = reader.PhoneNumber,
-                RegistrationDate = reader.RegistrationDate // Не редактируется, но можно отобразить
+                RegistrationDate = reader.RegistrationDate // Сохраняем существующую дату регистрации
             };
-            return View(readerViewModel);
+            return View(viewModel);
         }
 
         // POST: Readers/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Guid id, [Bind("Id,FirstName,LastName,MiddleName,Email,PhoneNumber")] ReaderViewModel readerViewModel)
+        public async Task<IActionResult> Edit(Guid id, [Bind("Id,FirstName,LastName,MiddleName,Email,PhoneNumber,RegistrationDate")] ReaderViewModel viewModel) // Принимаем ReaderViewModel
         {
-            if (id != readerViewModel.Id)
-            {
-                return NotFound();
-            }
+            if (id != viewModel.Id) return NotFound();
 
             if (ModelState.IsValid)
             {
-                // Проверка на существующий Email (кроме текущего пользователя)
-                var existingReaderWithEmail = (await _readerRepository.GetAllAsync())
-                    .FirstOrDefault(r => r.Email.Equals(readerViewModel.Email, StringComparison.OrdinalIgnoreCase) && r.Id != readerViewModel.Id);
-                if (existingReaderWithEmail != null)
+                // Получаем существующую сущность Reader из БД для обновления
+                var readerToUpdate = await _readerRepository.GetByIdAsync(id);
+                if (readerToUpdate == null) return NotFound();
+
+                // Обновляем свойства сущности из ViewModel
+                readerToUpdate.FirstName = viewModel.FirstName;
+                readerToUpdate.LastName = viewModel.LastName;
+                readerToUpdate.MiddleName = viewModel.MiddleName;
+                readerToUpdate.Email = viewModel.Email;
+                readerToUpdate.PhoneNumber = viewModel.PhoneNumber;
+                readerToUpdate.RegistrationDate = viewModel.RegistrationDate; // Сохраняем дату регистрации
+
+                try
                 {
-                    ModelState.AddModelError("Email", "Другой читатель с таким Email уже зарегистрирован.");
+                    await _readerRepository.UpdateAsync(readerToUpdate);
+                    TempData["SuccessMessage"] = $"Данные читателя '{readerToUpdate.FullName}' успешно обновлены.";
+                    return RedirectToAction(nameof(Details), new { id = readerToUpdate.Id });
                 }
-                else
+                catch (DbUpdateException ex)
                 {
-                    try
+                    var sqlException = ex.InnerException as Microsoft.Data.SqlClient.SqlException; // <--- ИЗМЕНЕНО
+                    if (sqlException != null && (sqlException.Number == 2627 || sqlException.Number == 2601))
                     {
-                        var readerToUpdate = await _readerRepository.GetByIdAsync(id);
-                        if (readerToUpdate == null) return NotFound();
-
-                        readerToUpdate.FirstName = readerViewModel.FirstName;
-                        readerToUpdate.LastName = readerViewModel.LastName;
-                        readerToUpdate.MiddleName = readerViewModel.MiddleName;
-                        readerToUpdate.Email = readerViewModel.Email;
-                        readerToUpdate.PhoneNumber = readerViewModel.PhoneNumber;
-
-                        await _readerRepository.UpdateAsync(readerToUpdate);
-                        TempData["SuccessMessage"] = $"Данные читателя '{readerToUpdate.FullName}' успешно обновлены.";
-                    }
-                    catch (Exception)
-                    {
-                        if (await _readerRepository.GetByIdAsync(readerViewModel.Id) == null)
+                        if (sqlException.Message.Contains("IX_Readers_Email") || sqlException.Message.Contains("Cannot insert duplicate key row"))
                         {
-                            return NotFound();
+                            ModelState.AddModelError("Email", "Читатель с таким Email уже существует.");
                         }
-                        ModelState.AddModelError(string.Empty, "Произошла ошибка при обновлении данных читателя.");
-                        return View(readerViewModel);
+                        else
+                        {
+                            ModelState.AddModelError(string.Empty, "Произошла ошибка базы данных при обновлении читателя. Пожалуйста, попробуйте снова.");
+                        }
                     }
-                    return RedirectToAction(nameof(Details), new { id = readerViewModel.Id });
+                    else if (await _readerRepository.GetByIdAsync(id) == null) // Проверяем, был ли удален читатель другим запросом
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, "Произошла непредвиденная ошибка.");
+                    }
                 }
             }
-            return View(readerViewModel);
+            return View(viewModel); // Возвращаем ViewModel
         }
 
+        // GET: Readers/Delete/5
+        public async Task<IActionResult> Delete(Guid? id)
+        {
+            if (id == null) return NotFound();
+            var reader = await _readerRepository.GetByIdAsync(id.Value);
+            if (reader == null) return NotFound();
+
+            // Проецируем читателя в ReaderViewModel для отображения в подтверждении удаления
+            var viewModel = new ReaderViewModel
+            {
+                Id = reader.Id,
+                FirstName = reader.FirstName,
+                LastName = reader.LastName,
+                MiddleName = reader.MiddleName,
+                Email = reader.Email,
+                PhoneNumber = reader.PhoneNumber,
+                RegistrationDate = reader.RegistrationDate,
+                BorrowedBooksCount = reader.BorrowedBooks?.Count ?? 0 // Подсчитываем книги для отображения предупреждения
+            };
+
+            // Проверка, есть ли у читателя книги на руках
+            if (reader.BorrowedBooks != null && reader.BorrowedBooks.Any())
+            {
+                ViewBag.ErrorMessage = $"Нельзя удалить читателя '{reader.FullName}', так как у него есть невозвращенные книги.";
+            }
+
+            return View(viewModel); // Передаем ViewModel
+        }
+
+        // POST: Readers/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(Guid id)
+        {
+            var reader = await _readerRepository.GetByIdAsync(id);
+            if (reader == null) return NotFound();
+
+            if (reader.BorrowedBooks != null && reader.BorrowedBooks.Any())
+            {
+                TempData["ErrorMessage"] = $"Нельзя удалить читателя '{reader.FullName}', так как у него есть невозвращенные книги.";
+                return RedirectToAction(nameof(Delete), new { id });
+            }
+
+            await _readerRepository.DeleteAsync(id);
+            TempData["SuccessMessage"] = $"Читатель '{reader.FullName}' успешно удален.";
+            return RedirectToAction(nameof(Index));
+        }
 
         // GET: Readers/BorrowBook/readerId
         [HttpGet("Readers/BorrowBook/{readerId:guid}")]
@@ -201,18 +268,14 @@ namespace BookLibrary.Controllers
             if (reader == null) return NotFound();
 
             var allBooks = await _bookRepository.GetAllAsync();
-            var availableBooks = allBooks.Where(b => !b.CurrentReaderId.HasValue)
-                                        .OrderBy(b => b.Title)
-                                        .Select(b => new SelectListItem
-                                        {
-                                            Value = b.Id.ToString(),
-                                            Text = b.Title
-                                        }).ToList();
-
-            if (!availableBooks.Any())
-            {
-                TempData["InfoMessage"] = "Нет доступных книг для выдачи.";
-            }
+            var availableBooks = allBooks
+                .Where(b => !b.CurrentReaderId.HasValue)
+                .OrderBy(b => b.Title)
+                .Select(b => new SelectListItem
+                {
+                    Value = b.Id.ToString(),
+                    Text = b.Title
+                }).ToList();
 
             var viewModel = new BorrowBookViewModel
             {
@@ -220,9 +283,16 @@ namespace BookLibrary.Controllers
                 ReaderName = reader.FullName,
                 AvailableBooks = availableBooks
             };
+
+            if (!availableBooks.Any())
+            {
+                TempData["InfoMessage"] = "Нет доступных книг для выдачи.";
+            }
+
             return View(viewModel);
         }
 
+        // POST: Readers/BorrowBook/{readerId:guid}
         [HttpPost("Readers/BorrowBook/{readerId:guid}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BorrowBook(Guid readerId, BorrowBookViewModel viewModel)
@@ -234,12 +304,11 @@ namespace BookLibrary.Controllers
 
             if (reader == null || book == null) return NotFound();
 
-            if (ModelState.IsValid) // SelectedBookId должен быть Required в ViewModel
+            if (ModelState.IsValid)
             {
                 if (book.CurrentReaderId.HasValue)
                 {
                     ModelState.AddModelError("SelectedBookId", "Эта книга уже выдана другому читателю.");
-                    TempData["ErrorMessage"] = "Выбранная книга уже выдана.";
                 }
                 else
                 {
@@ -250,41 +319,24 @@ namespace BookLibrary.Controllers
                 }
             }
 
-            // Если ошибка, перезагружаем данные
+            // Если ошибка, перезагружаем данные для View
             var allBooks = await _bookRepository.GetAllAsync();
-            viewModel.AvailableBooks = allBooks.Where(b => !b.CurrentReaderId.HasValue)
-                                            .OrderBy(b => b.Title)
-                                            .Select(b => new SelectListItem
-                                            {
-                                                Value = b.Id.ToString(),
-                                                Text = b.Title
-                                            }).ToList();
-            viewModel.ReaderName = reader.FullName; // Восстанавливаем имя
+            viewModel.AvailableBooks = allBooks.Where(b => !b.CurrentReaderId.HasValue).OrderBy(b => b.Title).Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Title }).ToList();
+            viewModel.ReaderName = reader.FullName;
             return View(viewModel);
         }
 
-        // POST: Readers/ReturnBook/bookId (для формы на странице деталей читателя)
+        // POST: Readers/ReturnBook
         [HttpPost]
         [ValidateAntiForgeryToken]
-        //[Route("Readers/ReturnBook/{bookId:guid}/{readerId:guid}")] // Можно использовать такой Route, если кнопка уникальна
-        public async Task<IActionResult> ReturnBook(Guid bookId, Guid readerId) // readerId для редиректа и проверки
+        public async Task<IActionResult> ReturnBook(Guid bookId, Guid readerId)
         {
             var book = await _bookRepository.GetByIdAsync(bookId);
-            var reader = await _readerRepository.GetByIdAsync(readerId); // Для проверки и редиректа
+            if (book == null) return NotFound();
 
-            if (book == null || reader == null)
+            if (book.CurrentReaderId != readerId)
             {
-                TempData["ErrorMessage"] = "Книга или читатель не найдены.";
-                return RedirectToAction(nameof(Index)); // или на другую страницу ошибки
-            }
-
-            if (book.CurrentReaderId == null)
-            {
-                TempData["InfoMessage"] = $"Книга '{book.Title}' уже находится в библиотеке.";
-            }
-            else if (book.CurrentReaderId != readerId)
-            {
-                TempData["ErrorMessage"] = $"Книга '{book.Title}' не может быть возвращена этим читателем, так как она числится за другим.";
+                TempData["ErrorMessage"] = "Ошибка: книга не числится за этим читателем.";
             }
             else
             {
@@ -293,71 +345,6 @@ namespace BookLibrary.Controllers
                 TempData["SuccessMessage"] = $"Книга '{book.Title}' успешно возвращена в библиотеку.";
             }
             return RedirectToAction(nameof(Details), new { id = readerId });
-        }
-
-
-        // GET: Readers/Delete/5 (Опционально, т.к. обычно читателей не удаляют)
-        public async Task<IActionResult> Delete(Guid? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var reader = await _readerRepository.GetByIdAsync(id.Value);
-            if (reader == null)
-            {
-                return NotFound();
-            }
-
-            // Проверка, есть ли у читателя книги на руках
-            var books = await _bookRepository.GetAllAsync();
-            if (books.Any(b => b.CurrentReaderId == id.Value))
-            {
-                ViewBag.HasBooks = true;
-                TempData["ErrorMessage"] = $"Нельзя удалить читателя '{reader.FullName}', так как у него есть невозвращенные книги.";
-            }
-
-            return View(reader);
-        }
-
-        // POST: Readers/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(Guid id)
-        {
-            var reader = await _readerRepository.GetByIdAsync(id);
-            if (reader == null)
-            {
-                return NotFound();
-            }
-
-            var books = await _bookRepository.GetAllAsync();
-            if (books.Any(b => b.CurrentReaderId == id))
-            {
-                TempData["ErrorMessage"] = $"Нельзя удалить читателя '{reader.FullName}', так как у него есть невозвращенные книги.";
-                return RedirectToAction(nameof(Delete), new { id = id });
-            }
-            // Здесь IReaderRepository должен иметь метод DeleteAsync
-            // await _readerRepository.DeleteAsync(id);
-            TempData["SuccessMessage"] = $"Читатель '{reader.FullName}' успешно удален (если реализовано удаление).";
-            // Если удаление не реализовано, замените на:
-            // TempData["InfoMessage"] = "Функция удаления читателей не активна.";
-
-            // Пока метод DeleteAsync не был определен для IReaderRepository в начальном запросе,
-            // закомментируем его вызов. Если вы его добавите, раскомментируйте.
-            if (_readerRepository is JsonReaderRepository jsonReaderRepo) // Проверка, если конкретный тип реализует Delete
-            {
-                // await jsonReaderRepo.DeleteAsync(id); // Если метод существует
-                TempData["InfoMessage"] = $"Читатель '{reader.FullName}' успешно удален (если реализовано удаление).";
-            }
-            else
-            {
-                TempData["WarningMessage"] = "Удаление читателей не поддерживается текущей реализацией репозитория.";
-            }
-
-
-            return RedirectToAction(nameof(Index));
         }
     }
 }

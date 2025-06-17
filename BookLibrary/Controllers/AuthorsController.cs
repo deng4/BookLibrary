@@ -2,16 +2,16 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using BookLibrary.Models;
 using BookLibrary.Models.ViewModels; // Если вы создали AuthorViewModel
 using BookLibrary.Repositories;
+using BookLibrary.Models.DatabaseModels;
 
 namespace BookLibrary.Controllers
 {
     public class AuthorsController : Controller
     {
         private readonly IAuthorRepository _authorRepository;
-        private readonly IBookRepository _bookRepository; // Для проверки перед удалением
+        private readonly IBookRepository _bookRepository;
 
         public AuthorsController(IAuthorRepository authorRepository, IBookRepository bookRepository)
         {
@@ -29,144 +29,83 @@ namespace BookLibrary.Controllers
         // GET: Authors/Details/5
         public async Task<IActionResult> Details(Guid? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             var author = await _authorRepository.GetByIdAsync(id.Value);
-            if (author == null)
-            {
-                return NotFound();
-            }
-
-            // Опционально: показать книги этого автора
-            // var books = (await _bookRepository.GetAllAsync()).Where(b => b.AuthorIds.Contains(author.Id));
-            // ViewBag.BooksByAuthor = books;
-
+            if (author == null) return NotFound();
             return View(author);
         }
 
         // GET: Authors/Create
         public IActionResult Create()
         {
-            // Используем AuthorViewModel если он отличается от Author, иначе можно Author
-            return View(new AuthorViewModel());
+            return View();
         }
 
         // POST: Authors/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("FirstName,LastName,MiddleName,DateOfBirth")] AuthorViewModel authorViewModel)
-        // или public async Task<IActionResult> Create(Author author) если не используете ViewModel
+        public async Task<IActionResult> Create([Bind("FirstName,LastName,MiddleName,DateOfBirth")] Author author)
         {
             if (ModelState.IsValid)
             {
-                var author = new Author
-                {
-                    FirstName = authorViewModel.FirstName,
-                    LastName = authorViewModel.LastName,
-                    MiddleName = authorViewModel.MiddleName,
-                    DateOfBirth = authorViewModel.DateOfBirth
-                    // Id генерируется в конструкторе Author
-                };
+                author.Id = Guid.NewGuid();
                 await _authorRepository.AddAsync(author);
                 TempData["SuccessMessage"] = $"Автор '{author.FullName}' успешно добавлен.";
                 return RedirectToAction(nameof(Index));
             }
-            return View(authorViewModel);
+            return View(author);
         }
 
         // GET: Authors/Edit/5
         public async Task<IActionResult> Edit(Guid? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             var author = await _authorRepository.GetByIdAsync(id.Value);
-            if (author == null)
-            {
-                return NotFound();
-            }
-            // Преобразование в ViewModel, если используется
-            var authorViewModel = new AuthorViewModel
-            {
-                Id = author.Id,
-                FirstName = author.FirstName,
-                LastName = author.LastName,
-                MiddleName = author.MiddleName,
-                DateOfBirth = author.DateOfBirth
-            };
-            return View(authorViewModel);
+            if (author == null) return NotFound();
+            return View(author);
         }
 
         // POST: Authors/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Guid id, [Bind("Id,FirstName,LastName,MiddleName,DateOfBirth")] AuthorViewModel authorViewModel)
+        public async Task<IActionResult> Edit(Guid id, [Bind("Id,FirstName,LastName,MiddleName,DateOfBirth")] Author author)
         {
-            if (id != authorViewModel.Id)
-            {
-                return NotFound();
-            }
+            if (id != author.Id) return NotFound();
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    var author = new Author
-                    {
-                        Id = authorViewModel.Id,
-                        FirstName = authorViewModel.FirstName,
-                        LastName = authorViewModel.LastName,
-                        MiddleName = authorViewModel.MiddleName,
-                        DateOfBirth = authorViewModel.DateOfBirth
-                    };
                     await _authorRepository.UpdateAsync(author);
                     TempData["SuccessMessage"] = $"Данные автора '{author.FullName}' успешно обновлены.";
                 }
-                catch (Exception) // Можно уточнить тип исключения (e.g., KeyNotFoundException if update implies existence)
+                catch (Exception)
                 {
-                    if (await _authorRepository.GetByIdAsync(authorViewModel.Id) == null)
+                    // Проверяем, существует ли автор, если произошла ошибка
+                    if (await _authorRepository.GetByIdAsync(id) == null)
                     {
                         return NotFound();
                     }
-                    else
-                    {
-                        // Логирование ошибки
-                        ModelState.AddModelError(string.Empty, "Произошла ошибка при обновлении данных автора.");
-                        return View(authorViewModel);
-                    }
+                    throw;
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(authorViewModel);
+            return View(author);
         }
 
         // GET: Authors/Delete/5
         public async Task<IActionResult> Delete(Guid? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             var author = await _authorRepository.GetByIdAsync(id.Value);
-            if (author == null)
-            {
-                return NotFound();
-            }
+            if (author == null) return NotFound();
 
             // Проверка, есть ли у автора книги
-            var books = await _bookRepository.GetAllAsync();
-            if (books.Any(b => b.AuthorIds.Contains(id.Value)))
+            var allBooks = await _bookRepository.GetAllAsync();
+            if (allBooks.Any(b => b.Authors.Any(a => a.Id == id.Value)))
             {
-                ViewBag.HasBooks = true; // Передаем флаг в представление
-                TempData["ErrorMessage"] = $"Нельзя удалить автора '{author.FullName}', так как за ним числятся книги. Сначала удалите или измените книги этого автора.";
+                ViewBag.ErrorMessage = $"Нельзя удалить автора '{author.FullName}', так как за ним числятся книги.";
             }
-
 
             return View(author);
         }
@@ -177,17 +116,14 @@ namespace BookLibrary.Controllers
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
             var author = await _authorRepository.GetByIdAsync(id);
-            if (author == null)
-            {
-                return NotFound();
-            }
+            if (author == null) return NotFound();
 
-            var books = await _bookRepository.GetAllAsync();
-            if (books.Any(b => b.AuthorIds.Contains(id)))
+            // Повторная проверка перед удалением
+            var allBooks = await _bookRepository.GetAllAsync();
+            if (allBooks.Any(b => b.Authors.Any(a => a.Id == id)))
             {
                 TempData["ErrorMessage"] = $"Нельзя удалить автора '{author.FullName}', так как за ним числятся книги.";
-                // Перенаправляем обратно на страницу удаления, где отобразится сообщение
-                return RedirectToAction(nameof(Delete), new { id = id });
+                return RedirectToAction(nameof(Delete), new { id });
             }
 
             await _authorRepository.DeleteAsync(id);

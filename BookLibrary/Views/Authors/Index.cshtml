@@ -1,4 +1,4 @@
-﻿@model IEnumerable<BookLibrary.Models.Author>
+﻿@model IEnumerable<BookLibrary.Models.DatabaseModels.Author>
 
 @{
     ViewData["Title"] = "Список авторов";
@@ -13,10 +13,10 @@
     <thead>
         <tr>
             <th>
-                @Html.DisplayNameFor(model => model.First().FullName)
+                @Html.DisplayNameFor(model => model.FullName)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.First().DateOfBirth)
+                @Html.DisplayNameFor(model => model.DateOfBirth)
             </th>
             <th>Действия</th>
         </tr>

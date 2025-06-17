@@ -1,7 +1,8 @@
-﻿using System;
+﻿using BookLibrary.Models.DatabaseModels;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using BookLibrary.Models;
+
 
 namespace BookLibrary.Repositories
 {

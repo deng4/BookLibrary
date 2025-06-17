@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace BookLibrary.Repositories
 {
-    public class JsonAuthorRepository : IAuthorRepository
+    public class JsonAuthorRepository /*: IAuthorRepository*/
     {
         private readonly string _filePath;
         private readonly JsonSerializerOptions _options;

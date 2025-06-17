@@ -1,57 +1,60 @@
 using BookLibrary.Repositories;
-using BookLibrary.Middleware; // Добавляем using для нашего Middleware
-using BookLibrary.Filters;    // Добавляем using для наших фильтров
+using BookLibrary.Middleware;
+using BookLibrary.Filters;
+using Microsoft.EntityFrameworkCore;
+using BookLibrary.Models.DatabaseModels;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Добавление DbContext
+builder.Services.AddDbContext<LibraryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Регистрация репозиториев (как и ранее)
-builder.Services.AddSingleton<IAuthorRepository, JsonAuthorRepository>();
-builder.Services.AddSingleton<IBookRepository, JsonBookRepository>();
-builder.Services.AddSingleton<IReaderRepository, JsonReaderRepository>();
+// 2. Регистрация репозиториев с новой реализацией
+// Scoped - жизненный цикл совпадает с жизненным циклом запроса, что хорошо для DbContext
+builder.Services.AddScoped<IAuthorRepository, EfAuthorRepository>();
+builder.Services.AddScoped<IBookRepository, EfBookRepository>();
+builder.Services.AddScoped<IReaderRepository, EfReaderRepository>();
 
-// Добавление контроллеров с представлениями и конфигурация глобальных фильтров
+// Добавление контроллеров, фильтров и т.д. (как раньше)
 builder.Services.AddControllersWithViews(options =>
 {
-    options.Filters.Add<LogActionFilterAttribute>();       // Глобальное добавление фильтра действий
-    options.Filters.Add<GlobalExceptionFilterAttribute>(); // Глобальное добавление фильтра исключений
+    options.Filters.Add<LogActionFilterAttribute>();
+    options.Filters.Add<GlobalExceptionFilterAttribute>();
 });
-// Если бы GlobalExceptionFilterAttribute принимал ILogger через DI:
-// builder.Services.AddScoped<GlobalExceptionFilterAttribute>(); // Зарегистрировать фильтр как сервис
-// options.Filters.AddService<GlobalExceptionFilterAttribute>(); // И добавить его как сервис
-
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// **(Опционально, но рекомендуется) Автоматическое применение миграций при старте**
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<LibraryDbContext>();
+        context.Database.Migrate(); // Применяет все непримененные миграции
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating the database.");
+    }
+}
 
-// **Регистрация нашего кастомного Middleware**
-// Обычно размещается в начале конвейера, чтобы перехватывать все запросы.
-// Если Middleware нужно точное знание маршрута в самом начале InvokeAsync,
-// его можно разместить после app.UseRouting(), но для текущей задачи
-// (логирование Path в начале и Route в конце) текущее размещение подходит.
+
+// Configure the HTTP request pipeline.
 app.UseRequestLogging();
 
 if (!app.Environment.IsDevelopment())
 {
-    // Этот обработчик будет менее востребован, если GlobalExceptionFilter перехватывает все
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
-}
-else
-{
-    // В режиме разработки можно оставить стандартную страницу ошибок для некоторых случаев
-    // app.UseDeveloperExceptionPage(); // Или убрать, если GlobalExceptionFilter покрывает все нужды
 }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
-app.UseRouting(); // Важно: UseRouting должен быть до UseEndpoints (MapControllerRoute)
-                  // и до Middleware, если оно хочет получить доступ к RouteData сразу
-
-app.UseAuthorization(); // Если используется авторизация
+app.UseRouting();
+app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
