@@ -20,7 +20,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t myapp:test
+          docker build -t myapp:test -f ./Dockerfile .
       
       - name: Run smoke test
         run: |
