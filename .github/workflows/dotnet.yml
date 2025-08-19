@@ -18,8 +18,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build Docker Image
+        run: |
+          docker build -t myapp:test
+      
+      - name: Run smoke test
+        run: |
+          docker run --rm myapp:test dotnet --info
+          echo "Smoke test passed"
 
-      - name: Build Dockerimage
-        uses: docker/build-push-action@v6
+    #  - name: Build Dockerimage
+    #    uses: docker/build-push-action@v6
